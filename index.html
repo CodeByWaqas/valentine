@@ -52,6 +52,7 @@
             font-size: 100px;
             animation: bounce 1s ease-in-out infinite;
             margin-bottom: 10px;
+            transition: font-size 0.3s ease;
         }
 
         @keyframes bounce {
@@ -63,13 +64,42 @@
             font-size: 2.8rem;
             color: #c62828;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
-            margin-bottom: 40px;
+            margin-bottom: 20px;
             animation: pulse 2s ease-in-out infinite;
         }
 
         @keyframes pulse {
             0%, 100% { transform: scale(1); }
             50% { transform: scale(1.05); }
+        }
+
+        /* Guilt message */
+        .guilt-message {
+            font-size: 1.2rem;
+            color: #ad1457;
+            min-height: 35px;
+            margin-bottom: 25px;
+            font-style: italic;
+            transition: all 0.3s ease;
+            opacity: 0;
+        }
+
+        .guilt-message.visible {
+            opacity: 1;
+        }
+
+        /* Attempt counter */
+        .attempt-counter {
+            font-size: 0.9rem;
+            color: #c62828;
+            margin-bottom: 15px;
+            min-height: 25px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .attempt-counter.visible {
+            opacity: 1;
         }
 
         .buttons {
@@ -96,7 +126,6 @@
         }
 
         .btn-yes:hover {
-            transform: scale(1.15);
             box-shadow: 0 6px 25px rgba(233, 30, 99, 0.6);
         }
 
@@ -119,6 +148,38 @@
         .btn-no.escaped {
             position: fixed;
             z-index: 50;
+        }
+
+        /* Screen shake */
+        @keyframes shake {
+            0%, 100% { transform: translate(0, 0); }
+            10% { transform: translate(-8px, -5px); }
+            20% { transform: translate(8px, 5px); }
+            30% { transform: translate(-5px, 8px); }
+            40% { transform: translate(5px, -8px); }
+            50% { transform: translate(-8px, 3px); }
+            60% { transform: translate(8px, -3px); }
+            70% { transform: translate(-3px, 8px); }
+            80% { transform: translate(3px, -5px); }
+            90% { transform: translate(-5px, 5px); }
+        }
+
+        body.shaking {
+            animation: shake 0.4s ease-in-out;
+        }
+
+        /* Broken heart trail */
+        .broken-heart {
+            position: fixed;
+            font-size: 24px;
+            pointer-events: none;
+            z-index: 40;
+            animation: brokenFall 1.5s ease-in forwards;
+        }
+
+        @keyframes brokenFall {
+            0% { transform: scale(1) translateY(0); opacity: 1; }
+            100% { transform: scale(0) translateY(80px) rotate(180deg); opacity: 0; }
         }
 
         /* Celebration screen */
@@ -153,6 +214,20 @@
             margin-top: 20px;
         }
 
+        .celebration .sub-text {
+            font-size: 1.1rem;
+            color: #880e4f;
+            margin-top: 30px;
+            opacity: 0;
+            animation: fadeInUp 1s ease forwards;
+            animation-delay: 2s;
+        }
+
+        @keyframes fadeInUp {
+            0% { opacity: 0; transform: translateY(20px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+
         /* Confetti */
         .confetti-piece {
             position: fixed;
@@ -167,6 +242,20 @@
             0% { transform: translateY(0) rotate(0deg); opacity: 1; }
             100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
         }
+
+        /* Love explosion */
+        .love-burst {
+            position: fixed;
+            font-size: 30px;
+            pointer-events: none;
+            z-index: 90;
+            animation: burst 1s ease-out forwards;
+        }
+
+        @keyframes burst {
+            0% { transform: scale(0) translate(0, 0); opacity: 1; }
+            100% { transform: scale(1.5) translate(var(--tx), var(--ty)); opacity: 0; }
+        }
     </style>
 </head>
 <body>
@@ -176,10 +265,12 @@
 
     <!-- Main question -->
     <div class="container" id="questionScreen">
-        <div class="bear-emoji">🧸</div>
+        <div class="bear-emoji" id="bear">🧸</div>
         <h1>Will you be my Valentine? </h1>
+        <div class="guilt-message" id="guiltMsg"></div>
+        <div class="attempt-counter" id="attemptCounter"></div>
         <div class="buttons">
-            <button class="btn-yes" onclick="sayYes()">Yes!</button>
+            <button class="btn-yes" id="yesBtn" onclick="sayYes()">Yes!</button>
             <button class="btn-no" id="noBtn">No</button>
         </div>
     </div>
@@ -187,27 +278,64 @@
     <!-- Celebration screen -->
     <div class="celebration" id="celebrationScreen">
         <div class="big-heart">❤️</div>
-        <h1>Yaaay! I knew it! 🥰</h1>
-        <p>You just made me the happiest person ever!</p>
+        <h1 id="celebTitle">Yaaay! I knew it! 🥰</h1>
+        <p id="celebMsg">You just made me the happiest person ever!</p>
         <p style="font-size: 2rem; margin-top: 20px;">💕 Happy Valentine's Day! 💕</p>
+        <p class="sub-text" id="celebSub"></p>
     </div>
 
     <script>
         const noBtn = document.getElementById('noBtn');
+        const yesBtn = document.getElementById('yesBtn');
+        const bear = document.getElementById('bear');
+        const guiltMsg = document.getElementById('guiltMsg');
+        const attemptCounter = document.getElementById('attemptCounter');
         let escapeCount = 0;
+        let yesScale = 1;
 
         const funnyTexts = [
             "No", "Are you sure?", "Really sure?", "Think again!",
-            "Pls?", "Don't do this 😢", "I'll be sad 😭",
+            "Pls? 🥺", "Don't do this 😢", "I'll be sad 😭",
             "You're breaking my heart!", "I'll cry! 💔",
-            "Fine... just kidding, try again!", "Noooo!", "😭😭😭"
+            "Just kidding, try again!", "Noooo!", "😭😭😭",
+            "I'm not giving up!", "PLEASE", "Ok fine...",
+            "JK still here! 😏"
+        ];
+
+        const guiltMessages = [
+            "",
+            "The bear is looking at you with hopeful eyes...",
+            "You really tried to click No? 😳",
+            "The bear's smile is fading... 🥺",
+            "Okay this is getting sad now...",
+            "Even the hearts are crying! 💔",
+            "You monster! Look what you're doing! 😭",
+            "The bear has never been this disappointed...",
+            "Fun fact: nobody has EVER successfully clicked No 😏",
+            "Your cursor must be so tired... just click Yes!",
+            "I can do this all day. Can you? 😤",
+            "The Yes button is RIGHT THERE. It's so big now!",
+            "At this point, you clearly want to say Yes 😉"
+        ];
+
+        const bearMoods = [
+            "🧸", "🧸", "🥺", "😢", "😭", "💔",
+            "😤", "🥹", "😿", "🙈", "😭", "💀", "🧸"
         ];
 
         function moveNoButton() {
-            // On first hover, pull the button out of the flow and make it fixed
+            // Shake the screen
+            document.body.classList.remove('shaking');
+            void document.body.offsetWidth;
+            document.body.classList.add('shaking');
+
+            // On first hover, pull the button out of the flow
             if (!noBtn.classList.contains('escaped')) {
                 noBtn.classList.add('escaped');
             }
+
+            // Spawn broken hearts at old position
+            spawnBrokenHeart(noBtn.offsetLeft + noBtn.offsetWidth / 2, noBtn.offsetTop);
 
             const padding = 20;
             const btnWidth = noBtn.offsetWidth;
@@ -222,11 +350,56 @@
             noBtn.style.top = randomY + 'px';
 
             escapeCount++;
+
+            // Update No button text
             if (escapeCount < funnyTexts.length) {
                 noBtn.textContent = funnyTexts[escapeCount];
             } else {
                 noBtn.textContent = funnyTexts[Math.floor(Math.random() * funnyTexts.length)];
             }
+
+            // Shrink No button
+            const noScale = Math.max(0.4, 1 - escapeCount * 0.05);
+            noBtn.style.transform = `scale(${noScale})`;
+
+            // Grow Yes button
+            yesScale += 0.15;
+            yesBtn.style.transform = `scale(${yesScale})`;
+
+            // Update bear mood
+            if (escapeCount < bearMoods.length) {
+                bear.textContent = bearMoods[escapeCount];
+            }
+
+            // Show guilt message
+            if (escapeCount < guiltMessages.length && guiltMessages[escapeCount]) {
+                guiltMsg.textContent = guiltMessages[escapeCount];
+                guiltMsg.classList.add('visible');
+            } else if (escapeCount >= guiltMessages.length) {
+                const randomMsg = guiltMessages[Math.floor(Math.random() * (guiltMessages.length - 1)) + 1];
+                guiltMsg.textContent = randomMsg;
+            }
+
+            // Show attempt counter
+            attemptCounter.classList.add('visible');
+            attemptCounter.textContent = `No escape attempts: ${escapeCount} 🏃💨`;
+
+            // Change background color gradually to more dramatic
+            const intensity = Math.min(escapeCount * 8, 60);
+            document.body.style.background = `linear-gradient(135deg,
+                hsl(340, ${70 + intensity}%, ${90 - intensity * 0.3}%),
+                hsl(330, ${60 + intensity}%, ${80 - intensity * 0.3}%),
+                hsl(320, ${50 + intensity}%, ${70 - intensity * 0.3}%))`;
+        }
+
+        function spawnBrokenHeart(x, y) {
+            const el = document.createElement('div');
+            el.className = 'broken-heart';
+            el.textContent = '💔';
+            el.style.left = x + 'px';
+            el.style.top = y + 'px';
+            document.body.appendChild(el);
+            setTimeout(() => el.remove(), 1500);
         }
 
         // Move on hover, touchstart, and click
@@ -239,8 +412,52 @@
 
         function sayYes() {
             document.getElementById('questionScreen').style.display = 'none';
-            document.getElementById('celebrationScreen').style.display = 'block';
+            noBtn.style.display = 'none';
+
+            const celebScreen = document.getElementById('celebrationScreen');
+            celebScreen.style.display = 'block';
+
+            // Custom celebration message based on attempts
+            const celebSub = document.getElementById('celebSub');
+            if (escapeCount === 0) {
+                celebSub.textContent = "Wow, you didn't even hesitate! True love! 💯";
+            } else if (escapeCount <= 3) {
+                celebSub.textContent = `Only ${escapeCount} attempt(s) to say No? I'll take it! 😄`;
+            } else if (escapeCount <= 7) {
+                celebSub.textContent = `${escapeCount} attempts to run away... but love always wins! 🏆`;
+            } else {
+                celebSub.textContent = `${escapeCount} escape attempts?! That was a JOURNEY. But we made it! 🎉`;
+            }
+
             launchConfetti();
+            loveBurst();
+
+            // Reset background to warm celebration color
+            document.body.style.background = 'linear-gradient(135deg, #fce4ec, #f8bbd0, #f48fb1)';
+        }
+
+        function loveBurst() {
+            const emojis = ['❤️', '💕', '💗', '💖', '💘', '🩷', '✨', '🥰', '💝', '💞'];
+            const cx = window.innerWidth / 2;
+            const cy = window.innerHeight / 2;
+
+            for (let i = 0; i < 20; i++) {
+                setTimeout(() => {
+                    const el = document.createElement('div');
+                    el.className = 'love-burst';
+                    el.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+                    el.style.left = cx + 'px';
+                    el.style.top = cy + 'px';
+
+                    const angle = (Math.PI * 2 * i) / 20;
+                    const dist = 150 + Math.random() * 200;
+                    el.style.setProperty('--tx', Math.cos(angle) * dist + 'px');
+                    el.style.setProperty('--ty', Math.sin(angle) * dist + 'px');
+
+                    document.body.appendChild(el);
+                    setTimeout(() => el.remove(), 1000);
+                }, i * 50);
+            }
         }
 
         // Confetti
@@ -249,20 +466,21 @@
                             '#ffeb3b', '#4caf50', '#2196f3', '#9c27b0'];
             const container = document.body;
 
-            for (let i = 0; i < 100; i++) {
-                setTimeout(() => {
-                    const confetti = document.createElement('div');
-                    confetti.className = 'confetti-piece';
-                    confetti.style.left = Math.random() * 100 + 'vw';
-                    confetti.style.background = colors[Math.floor(Math.random() * colors.length)];
-                    confetti.style.borderRadius = Math.random() > 0.5 ? '50%' : '0';
-                    confetti.style.width = (Math.random() * 10 + 5) + 'px';
-                    confetti.style.height = (Math.random() * 10 + 5) + 'px';
-                    confetti.style.animationDuration = (Math.random() * 2 + 2) + 's';
-                    container.appendChild(confetti);
-
-                    setTimeout(() => confetti.remove(), 4000);
-                }, i * 30);
+            for (let wave = 0; wave < 3; wave++) {
+                for (let i = 0; i < 60; i++) {
+                    setTimeout(() => {
+                        const confetti = document.createElement('div');
+                        confetti.className = 'confetti-piece';
+                        confetti.style.left = Math.random() * 100 + 'vw';
+                        confetti.style.background = colors[Math.floor(Math.random() * colors.length)];
+                        confetti.style.borderRadius = Math.random() > 0.5 ? '50%' : '0';
+                        confetti.style.width = (Math.random() * 10 + 5) + 'px';
+                        confetti.style.height = (Math.random() * 10 + 5) + 'px';
+                        confetti.style.animationDuration = (Math.random() * 2 + 2) + 's';
+                        container.appendChild(confetti);
+                        setTimeout(() => confetti.remove(), 4000);
+                    }, wave * 1500 + i * 30);
+                }
             }
         }
 
